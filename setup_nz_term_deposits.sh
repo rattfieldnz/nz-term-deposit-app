@@ -4,8 +4,11 @@ set -e
 APP_NAME="nz-term-deposits"
 
 echo "[1/10] Creating Laravel project with Jetstream (Livewire)..."
-laravel new $APP_NAME --jet
+laravel new $APP_NAME 
 cd $APP_NAME
+
+composer require laravel/jetstream
+php artisan jetstream:install livewire
 
 echo "[2/10] Installing npm dependencies and build frontend assets..."
 npm install
