@@ -4,7 +4,7 @@ set -e
 APP_NAME="nz-term-deposits"
 
 echo "[1/10] Creating Laravel project with Jetstream (Livewire)..."
-composer create-project laravel/laravel $APP_NAME
+laravel new $APP_NAME --jet
 cd $APP_NAME
 
 echo "[2/10] Installing npm dependencies and build frontend assets..."
@@ -66,29 +66,54 @@ class TermDepositCalculator
 EOF
 
 echo "[10/10] Adding files for GraphQL schema, exports, views, middleware, seeder, tests..."
+# [Add the rest of files via cat > as in original script]
 
-# Middleware: AdminMiddleware.php
-cat > app/Http/Middleware/AdminMiddleware.php << 'EOF'
-<?php
+# Insert routes only if not already present to avoid duplication
+if ! grep -q "InvestmentController" routes/web.php; then
+  cat >> routes/web.php <<'EOF'
 
-namespace App\Http\Middleware;
+// Investment routes
+use App\Http\Controllers\InvestmentController;
+use App\Http\Controllers\ExportController;
 
-use Closure;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+Route::get('/', [InvestmentController::class, 'index'])->name('home');
+Route::post('/calculate', [InvestmentController::class, 'calculate'])->name('calculate');
 
-class AdminMiddleware
-{
-    public function handle(Request $request, Closure $next)
-    {
-        if (! (Auth::check() && Auth::user()->is_admin)) {
-            abort(403, 'Unauthorized.');
-        }
+Route::get('/export/excel', [ExportController::class, 'exportExcel'])->name('export.excel');
+Route::post('/export/pdf', [ExportController::class, 'exportPdf'])->name('export.pdf');
 
-        return $next($request);
-    }
-}
+// Admin routes with middleware
+Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::resource('banks', \App\Http\Controllers\Admin\BankController::class);
+    Route::resource('term-deposit-rates', \App\Http\Controllers\Admin\TermDepositRateController::class);
+});
 EOF
+fi
+
+if ! grep -q "BankApiController" routes/api.php; then
+  cat >> routes/api.php <<'EOF'
+
+use App\Http\Controllers\Api\BankApiController;
+use App\Http\Controllers\Api\TermDepositRateApiController;
+
+Route::middleware('auth:sanctum')->group(function() {
+    Route::get('/banks', [BankApiController::class, 'index']);
+    Route::get('/term-deposit-rates', [TermDepositRateApiController::class, 'index']);
+});
+EOF
+fi
+
+# Append AppServiceProvider register method singleton binding carefully:
+APP_SERVICE_PROVIDER="app/Providers/AppServiceProvider.php"
+if ! grep -q "TermDepositCalculator" $APP_SERVICE_PROVIDER; then
+  sed -i '/public function register()/a\
+\
+        $this->app->singleton(\App\Services\TermDepositCalculator::class, function ($app) {\
+            return new \App\Services\TermDepositCalculator();\
+        });\
+' $APP_SERVICE_PROVIDER
+fi
+
 
 # Migration: add_is_admin_to_users_table
 cat > database/migrations/2024_01_01_000001_add_is_admin_to_users_table.php << 'EOF'
@@ -837,6 +862,9 @@ class DatabaseSeeder extends Seeder
 }
 EOF
 
+echo "Running migrations and seeders..."
+php artisan migrate --seed
+
 # PHPUnit tests for TermDepositCalculator
 mkdir -p tests/Unit
 cat > tests/Unit/TermDepositCalculatorTest.php << 'EOF'
@@ -916,8 +944,7 @@ class BankApiTest extends TestCase
 }
 EOF
 
-echo "Setup files have been created."
-
+# Add routes to web.php and api.php
 echo "[1/6] Adding web routes to routes/web.php..."
 cat >> routes/web.php << 'EOF'
 
@@ -956,12 +983,26 @@ if ! grep -q "use App\Services\TermDepositCalculator;" $APP_SERVICE_PROVIDER; th
     sed -i "/namespace App\\\Providers;/a use App\Services\TermDepositCalculator;" $APP_SERVICE_PROVIDER
 fi
 
-awk '/public function register\(\)/,/\}/ {
-    if (!found && /public function register\(\)/) {print; print "    {\n        $this->app->singleton(TermDepositCalculator::class, function (\$app) {\n            return new TermDepositCalculator();\n        });"; found=1; next}()
-    else if (found && /\}/) {print; found=2; next}
-    else if (found==1) next
+awk '
+/public function register\(\)/,/\}/ {
+    if (!found && /public function register\(\)/) {
+        print;
+        print "    {";
+        print "        $this->app->singleton(TermDepositCalculator::class, function ($app) {";
+        print "            return new TermDepositCalculator();";
+        print "        });";
+        found = 1;
+        next
+    }
+    if (found && /\}/) {
+        print;
+        found = 2;
+        next
+    }
+    if (found==1) next
 }
-{if(!found || found==2) print}' $APP_SERVICE_PROVIDER > tmp_AppServiceProvider.php
+{ if(!found || found==2) print }
+' $APP_SERVICE_PROVIDER > tmp_AppServiceProvider.php
 
 mv tmp_AppServiceProvider.php $APP_SERVICE_PROVIDER
 
@@ -974,4 +1015,19 @@ echo "Set BROADCAST_DRIVER=pusher or laravel-websockets with proper keys."
 echo "[6/6] Running PHPUnit tests to verify setup..."
 php artisan test
 
-echo "Post-setup complete! You can now run the application with 'php artisan serve' and 'npm run dev'."
+echo "Setup complete! Run your server with 'php artisan serve' and rebuild assets with 'npm run dev'."
+
+# Instructions to wire frontend JS for Echo & Pusher:
+echo "To enable real-time broadcasting:"
+echo "- Install JS deps: npm install --save laravel-echo pusher-js"
+echo "- Configure resources/js/bootstrap.js with Echo Pusher setup"
+echo "- Add Pusher credentials in .env: PUSHER_APP_ID, PUSHER_APP_KEY, PUSHER_APP_SECRET, PUSHER_APP_CLUSTER"
+echo "- Run 'npm run dev'"
+echo "- Listen to broadcast channels in your JS or Blade files (example included in previous instructions)."
+
+# Instructions to add Livewire InvestmentComparison component:
+echo "To add Livewire InvestmentComparison component:"
+echo "- Run 'php artisan make:livewire InvestmentComparison'"
+echo "- Implement component logic and blade as provided previously."
+echo "- Include @livewire('investment-comparison') in your desired blade."
+echo "- Ensure @livewireStyles and @livewireScripts are present in your main layout."
