@@ -121,7 +121,9 @@ fi
 
 
 # Migration: add_is_admin_to_users_table
-cat > database/migrations/add_is_admin_to_users_table.php << 'EOF'
+php artisan make:migration add_is_admin_to_users_table --table=users
+MIGRATION_IS_ADMIN=$(ls database/migrations/*add_is_admin_to_users_table.php | head -1)
+cat > "$MIGRATION_IS_ADMIN" << 'EOF'
 <?php
 
 use Illuminate\Database\Migrations\Migration;
@@ -146,8 +148,9 @@ class AddIsAdminToUsersTable extends Migration
 }
 EOF
 
-# Migration: create_banks_table
-cat > database/migrations/create_banks_table.php << 'EOF'
+php artisan make:migration create_banks_table
+MIGRATION_BANKS=$(ls database/migrations/*create_banks_table.php | head -1)
+cat > "$MIGRATION_BANKS" << 'EOF'
 <?php
 
 use Illuminate\Database\Migrations\Migration;
@@ -174,8 +177,9 @@ class CreateBanksTable extends Migration
 }
 EOF
 
-# Migration: create_term_deposit_rates_table
-cat > database/migrations/create_term_deposit_rates_table.php << 'EOF'
+php artisan make:migration create_term_deposit_rates_table
+MIGRATION_TDR=$(ls database/migrations/*create_term_deposit_rates_table.php | head -1)
+cat > "$MIGRATION_TDR" << 'EOF'
 <?php
 
 use Illuminate\Database\Migrations\Migration;
@@ -202,7 +206,6 @@ class CreateTermDepositRatesTable extends Migration
     }
 }
 EOF
-
 # Models: Bank.php
 cat > app/Models/Bank.php << 'EOF'
 <?php
