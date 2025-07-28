@@ -5,7 +5,7 @@ cd nz-term-deposit-app
 
 composer require laravel/jetstream laravel/sanctum nuwave/lighthouse \
                  maatwebsite/excel barryvdh/laravel-dompdf \
-                 filament/filament beyondcode/laravel-websockets \ 
+                 filament/filament beyondcode/laravel-websockets:^1.0 \ 
 				 --with-all-dependencies 
 
 # Jetstream + Livewire
