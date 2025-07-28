@@ -6,6 +6,8 @@
 
 set -euo pipefail
 
+cd nz-term-deposit-app
+
 echo "▶ Creating migrations…"
 
 # 1. Generate migration stubs
