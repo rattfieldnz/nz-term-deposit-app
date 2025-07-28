@@ -4,7 +4,7 @@ set -e
 APP_NAME="nz-term-deposits"
 
 echo "Creating Laravel project..."
-laravel new $APP_NAME --jet
+composer create-project laravel/laravel $APP_NAME --jet
 
 cd $APP_NAME
 
